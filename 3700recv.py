@@ -10,6 +10,7 @@ import time
 import datetime
 import select
 import json
+import struct
 
 
 def log(string):
@@ -52,10 +53,11 @@ while True:
         (data, addr) = result
 
         try:
-            decoded = json.loads(data)
+            decoded = data
+            seq, d, ack, eof = struct.unpack('i{}si?'.format(len(data) - 9), decoded)
 
             # If the EOF flag is set, exit
-            if decoded['eof']:
+            if eof:
                 # print data of packets
                 for p in packets_recv:
                     sys.stdout.write(p[0])
@@ -63,25 +65,28 @@ while True:
                 sys.exit(0)
 
             # If there is data, we accept it and print it out
-            if decoded['data']:
+            if d:
                 # If we receive data, we assume it's in-order
                 # You will need to do much more here
-                sequence = decoded['sequence']
+                sequence = seq
                 if sequence not in packets_recv:
-                    log("[recv data] " + str(decoded['sequence']) + " (" + str(
-                        len(decoded['data'])) + ") ACCEPTED (in-order)")
+                    log("[recv data] " + str(seq) + " (" + str(
+                        len(d)) + ") ACCEPTED (in-order)")
                     packets_recv = insert_array(packets_recv, (data, sequence))
                 # sys.stdout.write(decoded['data'])
 
             # Send back an ack to the sender
-            msg = json.dumps({"ack": decoded['sequence'] + len(decoded['data'])})
+            msg = struct.pack('i{}si?'.format(0), "", "", 0, seq + len(d))
+            # {"ack": decoded['sequence'] + len(decoded['data'])})
             log("ABOUT TO SEND " + msg)
             if sock.sendto(msg, addr) < len(msg):
                 log("[error] unable to fully send packet")
 
         except (ValueError, KeyError, TypeError) as e:
+            print(sys.exc_info()[0])
             log("[recv corrupt packet]")
             raise e
     else:
+        print(sys.exc_info()[0])
         log("[error] timeout")
         sys.exit(-1)

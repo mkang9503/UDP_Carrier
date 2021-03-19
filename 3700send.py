@@ -10,6 +10,7 @@ import time
 import datetime
 import select
 import json
+import struct
 
 MSG_SIZE = 1500
 DATA_SIZE = 1000
@@ -39,7 +40,7 @@ def send_next_packet():
 
     data = sys.stdin.read(DATA_SIZE)  # causing time our error??
     if len(data) > 0:
-        msg = json.dumps({"sequence": SEQUENCE, "data": data, "ack": False, "eof": False})
+        msg = struct.pack('i{}si?'.format(len(data)), SEQUENCE, data, False, False)
         SEQUENCE += len(data)
 
         if sock.sendto(msg, dest) < len(msg):
@@ -63,22 +64,26 @@ while True:
         if result:
             (data, addr) = result
             try:
-                decoded = json.loads(data)
+                decoded = data
+                sequence, data, ack, eof = struct.unpack('i{}si?'.format(len(data) - 9), decoded)
 
                 # If there is an ack, send next packet
-                if decoded['ack'] == SEQUENCE:
+                if ack == SEQUENCE:
                     log("[recv ack] " + str(SEQUENCE))
 
                     # Try to send next packet; break if no more data
                     if not send_next_packet():
                         break
             except (ValueError, KeyError, TypeError):
+                print(sys.exc_info()[0])
                 log("[recv corrupt packet]")
         else:
             log("[error] timeout")
             sys.exit(-1)
     except socket.timeout:
+        print(sys.exc_info()[0])
         sys.stdout.write('TIMEOUT ERROR')
 
-sock.sendto(json.dumps({"eof": True, "data": "", "sequence": SEQUENCE, "ack": False}), dest)
+# {"sequence": SEQUENCE, "data": "", "ack": False, "eof": True, }
+sock.sendto(struct.pack('i{}si?'.format(0), SEQUENCE, "", False, True), dest)
 sys.exit(0)
