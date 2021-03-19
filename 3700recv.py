@@ -29,8 +29,8 @@ TIMEOUT = 30
 
 # Bind to localhost and an ephemeral port
 UDP_IP = "127.0.0.1"
-# UDP_PORT = int(sys.argv[1])
-UDP_PORT = 0
+UDP_PORT = int(sys.argv[1])
+# UDP_PORT = 0
 
 # Set up the socket
 sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
@@ -45,7 +45,7 @@ packets_recv = []
 
 # Now listen for packets
 while True:
-    result = sock.recvfrom(MSG_SIZE)
+    result = sock.recvfrom(MSG_SIZE)  # causes TIMEOUT ERROR
 
     # If nothing is ready, we hit the timeout
     if result:

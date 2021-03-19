@@ -31,11 +31,14 @@ def log(string):
     sys.stderr.write(datetime.datetime.now().strftime("%H:%M:%S.%f") + " " + string + "\n")
 
 
+packets_sent = []
+
+
 def send_next_packet():
     global SEQUENCE
 
-    data = sys.stdin.read(DATA_SIZE)
-    if (len(data) > 0):
+    data = sys.stdin.read(DATA_SIZE)  # causing time our error??
+    if len(data) > 0:
         msg = json.dumps({"sequence": SEQUENCE, "data": data, "ack": False, "eof": False})
         SEQUENCE += len(data)
 
@@ -43,6 +46,7 @@ def send_next_packet():
             log("[error] unable to fully send packet")
         else:
             log("[send data] " + str(SEQUENCE) + " (" + str(len(data)) + ")")
+            packets_sent.append(msg)
         return True
     else:
         return False
@@ -54,25 +58,27 @@ send_next_packet()
 # Now read in data, send packets
 while True:
     log("ABOUT TO SLEEP")
-    result = sock.recvfrom(MSG_SIZE)
+    try:
+        result = sock.recvfrom(MSG_SIZE)  # <= causes time out
+        if result:
+            (data, addr) = result
+            try:
+                decoded = json.loads(data)
 
-    if result:
-        (data, addr) = result
-        try:
-            decoded = json.loads(data)
+                # If there is an ack, send next packet
+                if decoded['ack'] == SEQUENCE:
+                    log("[recv ack] " + str(SEQUENCE))
 
-            # If there is an ack, send next packet
-            if decoded['ack'] == SEQUENCE:
-                log("[recv ack] " + str(SEQUENCE))
-
-                # Try to send next packet; break if no more data
-                if (not send_next_packet()):
-                    break
-        except (ValueError, KeyError, TypeError):
-            log("[recv corrupt packet]")
-    else:
-        log("[error] timeout")
-        sys.exit(-1)
+                    # Try to send next packet; break if no more data
+                    if not send_next_packet():
+                        break
+            except (ValueError, KeyError, TypeError):
+                log("[recv corrupt packet]")
+        else:
+            log("[error] timeout")
+            sys.exit(-1)
+    except socket.timeout:
+        sys.stdout.write('TIMEOUT ERROR')
 
 sock.sendto(json.dumps({"eof": True, "data": "", "sequence": SEQUENCE, "ack": False}), dest)
 sys.exit(0)
