@@ -16,11 +16,20 @@ def log(string):
     sys.stderr.write(datetime.datetime.now().strftime("%H:%M:%S.%f") + " " + string + "\n")
 
 
+# insert element sorted by sequence, x is a tuple (data, sequence)
+def insert_array(array, x):
+    for i in range(len(array)):
+        if array[i][1] > x[1]:
+            return array[:i] + [x] + array[i:]
+    return array + [x]
+
+
 MSG_SIZE = 1500
 TIMEOUT = 30
 
 # Bind to localhost and an ephemeral port
 UDP_IP = "127.0.0.1"
+# UDP_PORT = int(sys.argv[1])
 UDP_PORT = 0
 
 # Set up the socket
@@ -31,6 +40,8 @@ sock.settimeout(TIMEOUT)
 # Get port we bound to
 UDP_PORT = sock.getsockname()[1]
 log("[bound] " + str(UDP_PORT))
+
+packets_recv = []
 
 # Now listen for packets
 while True:
@@ -45,6 +56,9 @@ while True:
 
             # If the EOF flag is set, exit
             if (decoded['eof']):
+                # print data of packets
+                for p in packets_recv:
+                    sys.stdout.write(p[0])
                 log("[completed]")
                 sys.exit(0)
 
@@ -52,9 +66,12 @@ while True:
             if (decoded['data']):
                 # If we receive data, we assume it's in-order
                 # You will need to do much more here
-                log("[recv data] " + str(decoded['sequence']) + " (" + str(
-                    len(decoded['data'])) + ") ACCEPTED (in-order)")
-                sys.stdout.write(decoded['data'])
+                sequence = decoded['sequence']
+                if sequence not in packets_recv:
+                    log("[recv data] " + str(decoded['sequence']) + " (" + str(
+                        len(decoded['data'])) + ") ACCEPTED (in-order)")
+                    packets_recv = insert_array(packets_recv, (data, sequence))
+                # sys.stdout.write(decoded['data'])
 
             # Send back an ack to the sender
             msg = json.dumps({"ack": decoded['sequence'] + len(decoded['data'])})
