@@ -55,7 +55,7 @@ while True:
             decoded = json.loads(data)
 
             # If the EOF flag is set, exit
-            if (decoded['eof']):
+            if decoded['eof']:
                 # print data of packets
                 for p in packets_recv:
                     sys.stdout.write(p[0])
@@ -63,7 +63,7 @@ while True:
                 sys.exit(0)
 
             # If there is data, we accept it and print it out
-            if (decoded['data']):
+            if decoded['data']:
                 # If we receive data, we assume it's in-order
                 # You will need to do much more here
                 sequence = decoded['sequence']
