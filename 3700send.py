@@ -40,7 +40,7 @@ def send_next_packet():
 
     data = sys.stdin.read(DATA_SIZE)  # causing time our error??
     if len(data) > 0:
-        msg = struct.pack('i{}si?'.format(len(data)), SEQUENCE, data, False, False)
+        msg = struct.pack('i{}si?'.format(len(data)), SEQUENCE, data.encode('utf-8'), False, False)
         SEQUENCE += len(data)
 
         if sock.sendto(msg, dest) < len(msg):
@@ -74,16 +74,17 @@ while True:
                     # Try to send next packet; break if no more data
                     if not send_next_packet():
                         break
+                else:
+                    sock.sendto(packets_sent[-1], dest)
             except (ValueError, KeyError, TypeError):
-                print(sys.exc_info()[0])
                 log("[recv corrupt packet]")
         else:
             log("[error] timeout")
             sys.exit(-1)
     except socket.timeout:
-        print(sys.exc_info()[0])
+        # server did not get ACK, resend last packet?
         sys.stdout.write('TIMEOUT ERROR')
 
 # {"sequence": SEQUENCE, "data": "", "ack": False, "eof": True, }
-sock.sendto(struct.pack('i{}si?'.format(0), SEQUENCE, "", False, True), dest)
+sock.sendto(struct.pack('i{}si?'.format(0), SEQUENCE, "", 0, True), dest)
 sys.exit(0)

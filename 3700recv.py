@@ -55,7 +55,10 @@ while True:
         try:
             decoded = data
             seq, d, ack, eof = struct.unpack('i{}si?'.format(len(data) - 9), decoded)
-
+            log("SEQ: " + str(seq))
+            d = d.decode('utf-8')
+            log("D: " + d)
+            log("ACK: " + str(ack))
             # If the EOF flag is set, exit
             if eof:
                 # print data of packets
@@ -69,24 +72,24 @@ while True:
                 # If we receive data, we assume it's in-order
                 # You will need to do much more here
                 sequence = seq
-                if sequence not in packets_recv:
+                log("STR Length: " + str(len(packets_recv)))
+                if (d, sequence) not in packets_recv:
                     log("[recv data] " + str(seq) + " (" + str(
                         len(d)) + ") ACCEPTED (in-order)")
-                    packets_recv = insert_array(packets_recv, (data, sequence))
-                # sys.stdout.write(decoded['data'])
+                    packets_recv = insert_array(packets_recv, (d, sequence))
 
             # Send back an ack to the sender
-            msg = struct.pack('i{}si?'.format(0), "", "", 0, seq + len(d))
+            # int, string, int, bool
+            # seq, data, ack, eof
+            msg = struct.pack('i{}si?'.format(0), seq, "", seq + len(d), False)
             # {"ack": decoded['sequence'] + len(decoded['data'])})
             log("ABOUT TO SEND " + msg)
             if sock.sendto(msg, addr) < len(msg):
                 log("[error] unable to fully send packet")
 
         except (ValueError, KeyError, TypeError) as e:
-            print(sys.exc_info()[0])
             log("[recv corrupt packet]")
             raise e
     else:
-        print(sys.exc_info()[0])
         log("[error] timeout")
         sys.exit(-1)
