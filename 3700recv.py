@@ -46,50 +46,54 @@ packets_recv = []
 
 # Now listen for packets
 while True:
-    result = sock.recvfrom(MSG_SIZE)  # causes TIMEOUT ERROR
+    try:
+        result = sock.recvfrom(MSG_SIZE)  # causes TIMEOUT ERROR
 
-    # If nothing is ready, we hit the timeout
-    if result:
-        (data, addr) = result
+        # If nothing is ready, we hit the timeout
+        if result:
+            (data, addr) = result
 
-        try:
-            decoded = data
-            seq, d, ack, eof = struct.unpack('i{}si?'.format(len(data) - 9), decoded)
-            log("SEQ: " + str(seq))
-            d = d.decode('utf-8')
-            log("D: " + d)
-            log("ACK: " + str(ack))
-            # If the EOF flag is set, exit
-            if eof:
-                # print data of packets
-                for p in packets_recv:
-                    sys.stdout.write(p[0])
-                log("[completed]")
-                sys.exit(0)
+            try:
+                decoded = data
+                seq, d, ack, eof = struct.unpack('i{}si?'.format(len(data) - 9), decoded)
+                # log("SEQ: " + str(seq))
+                # d = d.decode('utf-8')
+                # log("D: " + d)
+                # log("ACK: " + str(ack))
+                # If the EOF flag is set, exit
+                if eof:
+                    # print data of packets
+                    for p in packets_recv:
+                        sys.stdout.write(p[0])
+                    log("[completed]")
+                    sys.exit(0)
 
-            # If there is data, we accept it and print it out
-            if d:
-                # If we receive data, we assume it's in-order
-                # You will need to do much more here
-                sequence = seq
-                log("STR Length: " + str(len(packets_recv)))
-                if (d, sequence) not in packets_recv:
-                    log("[recv data] " + str(seq) + " (" + str(
-                        len(d)) + ") ACCEPTED (in-order)")
-                    packets_recv = insert_array(packets_recv, (d, sequence))
+                # If there is data, we accept it and print it out
+                if d:
+                    # If we receive data, we assume it's in-order
+                    # You will need to do much more here
+                    sequence = seq
+                    log("STR Length: " + str(len(packets_recv)))
+                    if (d, sequence) not in packets_recv:
+                        log("[recv data] " + str(seq) + " (" + str(
+                            len(d)) + ") ACCEPTED (in-order)")
+                        packets_recv = insert_array(packets_recv, (d, sequence))
 
-            # Send back an ack to the sender
-            # int, string, int, bool
-            # seq, data, ack, eof
-            msg = struct.pack('i{}si?'.format(0), seq, "", seq + len(d), False)
-            # {"ack": decoded['sequence'] + len(decoded['data'])})
-            log("ABOUT TO SEND " + msg)
-            if sock.sendto(msg, addr) < len(msg):
-                log("[error] unable to fully send packet")
+                # Send back an ack to the sender
+                msg = struct.pack('i{}si?'.format(0), seq, "", seq + len(d), False)
+                # {"ack": decoded['sequence'] + len(decoded['data'])})
+                # int, string, int, bool
+                # seq, data, ack, eof
+                log("ABOUT TO SEND " + msg)
+                if sock.sendto(msg, addr) < len(msg):
+                    log("[error] unable to fully send packet")
 
-        except (ValueError, KeyError, TypeError) as e:
-            log("[recv corrupt packet]")
-            raise e
-    else:
-        log("[error] timeout")
-        sys.exit(-1)
+            except (ValueError, KeyError, TypeError) as e:
+                log("[recv corrupt packet]")
+                raise e
+        else:
+            log("[error] timeout")
+            sys.exit(-1)
+    except socket.timeout:
+        # server did not get ACK, resend last packet?
+        log('RECV: TIMEOUT ERROR')
